@@ -1,0 +1,5 @@
+===============================================
+===== LINK =====
+===============================================
+https://archive.ics.uci.edu/ml/datasets/Optical+Recognition+of+Handwritten+Digits
+
