@@ -20,9 +20,12 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
+
+import java.util.BitSet;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -57,18 +60,134 @@ public class MainActivity extends ActionBarActivity {
 
     private BluetoothService mBluetoothService = null;
 
+    private boolean conectado;
+    private SeekBar seekBarMotor1;
+    private SeekBar seekBarMotor2;
+    private TextView textViewMotor1;
+    private TextView textViewMotor2;
+    private TextView textViewBateria;
+    private TextView estadosMotores;
+
     private Menu menu;
     private ToggleButton buttonStop;
+    private ToggleButton apagarMotores;
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        textViewBateria=(TextView) findViewById(R.id.textView3);
+        estadosMotores=(TextView) findViewById(R.id.textView4);
+        conectado=false;
+        //MOTOR 1
+        seekBarMotor1=(SeekBar) findViewById(R.id.seekBar1);
+        textViewMotor1=(TextView) findViewById(R.id.textView);
+        seekBarMotor1.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            int progress = 0;
+            char tipo;
+            char valor;
+
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progresValue, boolean fromUser) {
+                progress = 140-progresValue;
+                tipo=1;
+                if(progress<0){
+                    tipo=2;
+                    progress=progress*-1;
+                }
+                tipo--;
+                progress=(int)progress/3;
+                valor=(char)((tipo<<6)|progress);
+                textViewMotor1.setText("Motor 1: " + progress+"  -> "+(int)tipo+" - "+progress+" > "+(int)valor);
+                buttonStop.setEnabled(true);
+                buttonStop.setChecked(false);
+                if(conectado) {
+
+                    sendMessage(valor+"");
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                //textViewMotor1.setText("Covered: " + progress + "/" + seekBar.getMax());
+            }
+        });
+        //MOTOR 2
+        seekBarMotor2=(SeekBar) findViewById(R.id.seekBar2);
+        textViewMotor2=(TextView) findViewById(R.id.textView2);
+        seekBarMotor2.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            int progress = 0;
+            char tipo;
+            char valor;
+
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progresValue, boolean fromUser) {
+                progress = 140-progresValue;
+                tipo=1;
+                if(progress<0){
+                    tipo=2;
+                    progress=progress*-1;
+                }
+                tipo--;
+                progress=(int)progress/3;
+                valor=(char)((tipo<<6)|progress);
+                textViewMotor2.setText("Motor 2: " + progress+"  -> "+(int)tipo+" - "+valor+" > "+(int)valor+" ");
+                buttonStop.setEnabled(true);
+                buttonStop.setChecked(false);
+                if(conectado) {
+                    byte[] send=new byte[1];
+                    send[0]= (byte) valor;
+                    send[0]= (byte) (send[0]|1<<7);
+
+                    sendMessageByte(send);
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                //textViewMotor1.setText("Covered: " + progress + "/" + seekBar.getMax());
+            }
+        });
+
         buttonStop= (ToggleButton) findViewById(R.id.toggleButton);
         buttonStop.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
-                String message = "hola";
-                showMsn(message);
-                sendMessage(message);
+                char stop=(char)(50);
+                seekBarMotor1.setProgress(140);
+                seekBarMotor2.setProgress(140);
+                buttonStop.setEnabled(false);
+                if(conectado) {
+                    sendMessage(stop+"");
+                }
+
+            }
+        });
+
+        apagarMotores= (ToggleButton) findViewById(R.id.toggleButton2);
+        apagarMotores.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Send a message using content of the edit text widget
+                int apagar=(51);
+                /*seekBarMotor1.setProgress(140);
+                seekBarMotor2.setProgress(140);
+                buttonStop.setEnabled(false);
+                */
+                if(!apagarMotores.isChecked()){
+                    apagar=(52);
+                }
+                estadosMotores.setText(""+apagar);
+                if(conectado) {
+                    sendMessage((char)apagar+"");
+                }
 
             }
         });
@@ -178,19 +297,21 @@ public class MainActivity extends ActionBarActivity {
                     switch (msg.arg1) {
                         case BluetoothService.STATE_CONNECTED:
                             //setStatus(getString(R.string.title_connected_to, mConnectedDeviceName));
-                            updateMenuTitles("connected to -> "+mConnectedDeviceName);
-                            showMsn("connected to -> "+mConnectedDeviceName);
-                            Log.d(TAG, "Entro ");
+                            updateMenuTitles("connected to -> " + mConnectedDeviceName);
+                            showMsn("connected to -> " + mConnectedDeviceName);
+                            //Log.d(TAG, "Entro ");
                             //mConversationArrayAdapter.clear();
-                            Log.d(TAG, "Salio ");
+                            //Log.d(TAG, "Salio ");
+                            conectado = true;
                             break;
                         case BluetoothService.STATE_CONNECTING:
                             setStatus(R.string.title_connecting);
+                            conectado = false;
                             break;
                         case BluetoothService.STATE_LISTEN:
                         case BluetoothService.STATE_NONE:
-
                             setStatus(R.string.title_not_connected);
+                            conectado = false;
                             break;
                     }
                     break;
@@ -205,6 +326,12 @@ public class MainActivity extends ActionBarActivity {
                     // construct a string from the valid bytes in the buffer
                     String readMessage = new String(readBuf, 0, msg.arg1);
                     //mConversationArrayAdapter.add(mConnectedDeviceName + ":  " + readMessage);
+                    String tem="";
+                    for(int i=0;i<readMessage.length();i++){
+                        tem=(float)(readMessage.charAt(i)&255)/10+" - ";
+                    }
+                    textViewBateria.setText("Bateria:  "+tem/*+"  Tamaño: "+readMessage.length()*/);
+                    //showMsn(readMessage);
                     break;
                 case BluetoothService.MESSAGE_DEVICE_NAME:
                     // save the connected device's name
@@ -272,6 +399,25 @@ public class MainActivity extends ActionBarActivity {
 
         }
     }
+    private void sendMessageByte(byte[] send ) {
+        // Check that we're actually connected before trying anything
+        if (mBluetoothService.getState() != BluetoothService.STATE_CONNECTED) {
+            Toast.makeText(getApplicationContext(), R.string.not_connected, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Check that there's actually something to send
+        if (send.length > 0) {
+            // Get the message bytes and tell the BluetoothService to write
+            //byte[] send = message.getBytes();
+            //textViewMotor2.setText("Motor 2: " +" "+send.length+" "+(int)send[0]+" "+(int)send[send.length-1]+" ");
+
+            mBluetoothService.write(send);
+
+
+        }
+    }
+
 
     private void updateMenuTitles(int resId) {
         MenuItem bedMenuItem = menu.findItem(R.id.title_state);
